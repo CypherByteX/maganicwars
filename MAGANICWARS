@@ -1,0 +1,210 @@
+- components/
+    - Card.tsx
+    - Player.tsx
+    - GameBoard.tsx
+- pages/
+    - index.tsx
+- styles/
+    - game.css
+- utils/
+    - gameLogic.ts
+    - cards.ts
+
+
+
+
+// utils/cards.ts
+export const cardDeck = [
+  { id: 1, name: 'Fire Sword', attack: 15, defense: 0, effect: null },
+  { id: 2, name: 'Ice Shield', attack: 0, defense: 15, effect: null },
+  { id: 3, name: 'Poison Dagger', attack: 5, defense: 0, effect: 'poison' },
+  { id: 4, name: 'Healing Potion', attack: 0, defense: 0, effect: 'heal' },
+  { id: 5, name: 'Lightning Sword', attack: 10, defense: 5, effect: null },
+  // Add more cards as needed
+];
+
+export type Card = {
+  id: number;
+  name: string;
+  attack: number;
+  defense: number;
+  effect: string | null;
+};
+
+
+
+
+
+// utils/gameLogic.ts
+import { Card } from './cards';
+
+export type PlayerState = {
+  health: number;
+  defense: number;
+  poisonCounter: number;
+  cards: Card[];
+};
+
+export const initialPlayerState: PlayerState = {
+  health: 100,
+  defense: 0,
+  poisonCounter: 0,
+  cards: [],
+};
+
+export function applyCardEffect(player: PlayerState, opponent: PlayerState, card: Card) {
+  // Attack calculation
+  const damage = Math.max(0, card.attack - opponent.defense);
+  opponent.health -= damage;
+
+  // Reset opponent's defense
+  opponent.defense = 0;
+
+  // Apply defense from the card
+  player.defense += card.defense;
+
+  // Apply effects
+  if (card.effect === 'poison') {
+    opponent.poisonCounter = 3; // 3 turns of poison
+  }
+
+  if (card.effect === 'heal') {
+    player.health = Math.min(100, player.health + 20); // Healing
+  }
+}
+
+export function processPoison(player: PlayerState) {
+  if (player.poisonCounter > 0) {
+    player.health -= 3; // Poison deals 3 damage per turn
+    player.poisonCounter--;
+  }
+}
+
+
+// components/Player.tsx
+import { Card } from '../utils/cards';
+import React from 'react';
+
+type PlayerProps = {
+  health: number;
+  defense: number;
+  cards: Card[];
+  onCardSelect: (card: Card) => void;
+};
+
+const Player = ({ health, defense, cards, onCardSelect }: PlayerProps) => {
+  return (
+    <div className="player">
+      <h2>Player</h2>
+      <p>Health: {health}</p>
+      <p>Defense: {defense}</p>
+      <div className="card-hand">
+        {cards.map((card) => (
+          <button key={card.id} onClick={() => onCardSelect(card)}>
+            {card.name}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default Player;
+
+
+
+// components/GameBoard.tsx
+import React, { useState } from 'react';
+import Player from './Player';
+import { cardDeck, Card } from '../utils/cards';
+import { initialPlayerState, applyCardEffect, processPoison } from '../utils/gameLogic';
+
+const GameBoard = () => {
+  const [player1, setPlayer1] = useState({ ...initialPlayerState, cards: drawCards() });
+  const [player2, setPlayer2] = useState({ ...initialPlayerState, cards: drawCards() });
+  const [turn, setTurn] = useState(1);
+
+  function drawCards() {
+    return [...cardDeck].sort(() => 0.5 - Math.random()).slice(0, 5);
+  }
+
+  function handleCardSelect(player: 'player1' | 'player2', card: Card) {
+    if (turn % 2 !== 0 && player === 'player1') {
+      playTurn(player1, player2, card);
+    } else if (turn % 2 === 0 && player === 'player2') {
+      playTurn(player2, player1, card);
+    }
+  }
+
+  function playTurn(currentPlayer, opponent, card: Card) {
+    // Apply the card effect
+    applyCardEffect(currentPlayer, opponent, card);
+
+    // Process poison effects
+    processPoison(currentPlayer);
+    processPoison(opponent);
+
+    // Redraw new cards and end turn
+    setPlayer1((p) => (p === currentPlayer ? { ...p, cards: drawCards() } : p));
+    setPlayer2((p) => (p === currentPlayer ? { ...p, cards: drawCards() } : p));
+    setTurn(turn + 1);
+  }
+
+  return (
+    <div className="game-board">
+      <h1>Maganic Wars</h1>
+      <div className="players">
+        <Player health={player1.health} defense={player1.defense} cards={player1.cards} onCardSelect={(card) => handleCardSelect('player1', card)} />
+        <Player health={player2.health} defense={player2.defense} cards={player2.cards} onCardSelect={(card) => handleCardSelect('player2', card)} />
+      </div>
+      {player1.health <= 0 && <h2>Player 2 Wins!</h2>}
+      {player
+// pages/index.tsx
+import React from 'react';
+import GameBoard from '../components/GameBoard';
+
+const Home = () => {
+  return (
+    <div>
+      <GameBoard />
+    </div>
+  );
+};
+
+export default Home;
+/* styles/game.css */
+body {
+  font-family: Arial, sans-serif;
+  background-color: #f4f4f4;
+}
+
+.game-board {
+  text-align: center;
+  padding: 20px;
+}
+
+.players {
+  display: flex;
+  justify-content: space-around;
+  margin: 20px;
+}
+
+.player {
+  border: 2px solid #000;
+  padding: 10px;
+  background-color: #fff;
+}
+
+.card-hand button {
+  margin: 5px;
+  padding: 10px;
+  background-color: #ddd;
+  border: 1px solid #000;
+  cursor: pointer;
+}
+
+.card-hand button:hover {
+  background-color: #bbb;
+}
+
+
